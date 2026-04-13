@@ -1,0 +1,29 @@
+{
+  // Zenoh Router configuration for 10BASE-T1S master node
+  // PRD Section 8.2
+  mode: "router",
+  listen: {
+    endpoints: [
+      "tcp/192.168.1.1:7447",   // 10BASE-T1S interface
+      "tcp/127.0.0.1:7447"      // Loopback for local Python app
+    ]
+  },
+  scouting: {
+    multicast: {
+      enabled: true,
+      address: "224.0.0.224:7446",
+      interface: "eth1"          // 10BASE-T1S interface
+    }
+  },
+  transport: {
+    unicast: {
+      max_sessions: 7           // Max 7 slave nodes (PLCA limit: 8 total - 1 master)
+    }
+  },
+  // Timestamping with Hybrid Logical Clock
+  timestamping: {
+    enabled: {
+      router: true
+    }
+  }
+}

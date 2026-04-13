@@ -1,0 +1,78 @@
+name: door_zone_control
+description: "프론트 도어 존의 도어락, 윈도우, 사이드미러 제어"
+zone: front_left
+
+nodes:
+  - node_id: "1"
+    role: door_lock_sensor
+    plca_node_id: 1
+    publish:
+      - key: vehicle/front_left/1/sensor/proximity
+        interval_ms: 200
+        value_range: [0, 200]
+        unit: cm
+    subscribe: []
+
+  - node_id: "2"
+    role: door_lock_actuator
+    plca_node_id: 2
+    publish: []
+    subscribe:
+      - key: vehicle/front_left/2/actuator/lock
+
+  - node_id: "3"
+    role: window_motor
+    plca_node_id: 3
+    publish:
+      - key: vehicle/front_left/3/sensor/proximity
+        interval_ms: 500
+        value_range: [0, 100]
+        unit: cm
+    subscribe:
+      - key: vehicle/front_left/3/actuator/motor
+
+sequence:
+  - step: 1
+    action: wait_sensor
+    description: "근접 센서가 30cm 이하 감지 대기"
+    condition:
+      key: vehicle/front_left/1/sensor/proximity
+      operator: "<"
+      threshold: 30
+
+  - step: 2
+    action: publish
+    description: "도어 잠금 해제 명령"
+    key: vehicle/front_left/2/actuator/lock
+    payload:
+      action: unlock
+    delay_ms: 0
+
+  - step: 3
+    action: log
+    message: "Door unlocked by proximity detection"
+
+  - step: 4
+    action: query
+    description: "도어락 액추에이터 상태 확인"
+    key: vehicle/front_left/2/status
+
+  - step: 5
+    action: wait_sensor
+    description: "근접 센서가 100cm 이상 (사람 떠남)"
+    condition:
+      key: vehicle/front_left/1/sensor/proximity
+      operator: ">"
+      threshold: 100
+
+  - step: 6
+    action: publish
+    description: "도어 잠금 명령"
+    key: vehicle/front_left/2/actuator/lock
+    payload:
+      action: lock
+    delay_ms: 3000
+
+  - step: 7
+    action: log
+    message: "Door locked after proximity timeout"

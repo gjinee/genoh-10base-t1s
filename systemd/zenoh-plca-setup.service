@@ -1,0 +1,20 @@
+# systemd service: PLCA Coordinator auto-setup on boot
+# PRD: "PLCA 설정이 재부팅 시 초기화됨" → systemd로 자동 설정
+#
+# Install: sudo cp zenoh-plca-setup.service /etc/systemd/system/
+#          sudo systemctl enable zenoh-plca-setup
+
+[Unit]
+Description=10BASE-T1S PLCA Coordinator Setup
+Documentation=man:ethtool(8)
+After=network-pre.target sys-subsystem-net-devices-eth1.device
+Wants=sys-subsystem-net-devices-eth1.device
+ConditionPathExists=/sys/class/net/eth1
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/zenoh-t1s/scripts/setup_plca.sh eth1 8 192.168.1.1/24
+
+[Install]
+WantedBy=multi-user.target

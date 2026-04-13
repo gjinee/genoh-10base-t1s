@@ -1,0 +1,26 @@
+# systemd service: Zenoh Router daemon
+# Runs zenohd bound to the 10BASE-T1S interface.
+# PRD Section 6, Step [5]: Start zenohd with master_config.json5
+#
+# Install: sudo cp zenoh-router.service /etc/systemd/system/
+#          sudo systemctl enable zenoh-router
+
+[Unit]
+Description=Zenoh Router (zenohd) for 10BASE-T1S
+Documentation=https://zenoh.io/docs/
+After=zenoh-plca-setup.service network.target
+Requires=zenoh-plca-setup.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/zenohd --config /opt/zenoh-t1s/config/master_config.json5
+Restart=on-failure
+RestartSec=5
+WatchdogSec=30
+
+# Resource limits
+MemoryMax=128M
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

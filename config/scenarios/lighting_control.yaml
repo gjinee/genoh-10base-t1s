@@ -1,0 +1,92 @@
+name: lighting_control
+description: "헤드라이트 및 인테리어 조명 제어 시퀀스"
+zone: front
+
+nodes:
+  - node_id: "3"
+    role: headlight_controller
+    plca_node_id: 3
+    publish:
+      - key: vehicle/front/3/sensor/light
+        interval_ms: 1000
+        value_range: [0, 1000]
+        unit: lux
+    subscribe:
+      - key: vehicle/front/3/actuator/led
+
+  - node_id: "4"
+    role: interior_light
+    plca_node_id: 4
+    publish: []
+    subscribe:
+      - key: vehicle/front/4/actuator/led
+
+sequence:
+  - step: 1
+    action: publish
+    description: "헤드라이트 ON (전조등 모드, 밝기 100%)"
+    key: vehicle/front/3/actuator/led
+    payload:
+      action: set
+      params:
+        state: "on"
+        brightness: 100
+        mode: headlight
+        color: white
+    delay_ms: 0
+
+  - step: 2
+    action: log
+    message: "Headlight activated at full brightness"
+
+  - step: 3
+    action: query
+    description: "헤드라이트 노드 상태 확인"
+    key: vehicle/front/3/status
+
+  - step: 4
+    action: publish
+    description: "5초 후 주간주행등(DRL) 모드로 전환"
+    key: vehicle/front/3/actuator/led
+    payload:
+      action: set
+      params:
+        state: "on"
+        brightness: 30
+        mode: drl
+        color: white
+    delay_ms: 5000
+
+  - step: 5
+    action: publish
+    description: "인테리어 조명 ON"
+    key: vehicle/front/4/actuator/led
+    payload:
+      action: set
+      params:
+        state: "on"
+        brightness: 50
+        color: warm_white
+    delay_ms: 1000
+
+  - step: 6
+    action: wait_sensor
+    description: "조도 센서가 500 lux 이상 (밝은 환경)"
+    condition:
+      key: vehicle/front/3/sensor/light
+      operator: ">"
+      threshold: 500
+
+  - step: 7
+    action: publish
+    description: "밝은 환경에서 헤드라이트 OFF"
+    key: vehicle/front/3/actuator/led
+    payload:
+      action: set
+      params:
+        state: "off"
+    delay_ms: 0
+
+  - step: 8
+    action: log
+    message: "Headlight turned off due to high ambient light"

@@ -1,0 +1,25 @@
+# systemd service: Zenoh Master Application
+# Python master controller connecting to local zenohd.
+# PRD Section 6, Step [6]: Start master application
+#
+# Install: sudo cp zenoh-master-app.service /etc/systemd/system/
+#          sudo systemctl enable zenoh-master-app
+
+[Unit]
+Description=Zenoh 10BASE-T1S Master Application
+Documentation=https://github.com/eclipse-zenoh/zenoh
+After=zenoh-router.service
+Requires=zenoh-router.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/zenoh-t1s
+ExecStart=/usr/bin/python3 -m src.master.main start --interface eth1
+Restart=on-failure
+RestartSec=5
+
+# Resource limits (PRD NFR-005: < 256MB)
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

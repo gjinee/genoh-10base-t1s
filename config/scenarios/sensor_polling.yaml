@@ -1,0 +1,98 @@
+name: sensor_polling
+description: "모든 존의 온도 센서 주기적 수집 및 집계"
+zone: all
+
+interval_ms: 1000
+
+nodes:
+  - node_id: "1"
+    role: temperature_sensor_front_left
+    plca_node_id: 1
+    zone_override: front_left
+    publish:
+      - key: vehicle/front_left/1/sensor/temperature
+        interval_ms: 1000
+        value_range: [15.0, 45.0]
+        unit: celsius
+    subscribe: []
+
+  - node_id: "2"
+    role: temperature_sensor_front_right
+    plca_node_id: 2
+    zone_override: front_right
+    publish:
+      - key: vehicle/front_right/2/sensor/temperature
+        interval_ms: 1000
+        value_range: [15.0, 45.0]
+        unit: celsius
+    subscribe: []
+
+  - node_id: "3"
+    role: temperature_sensor_rear_left
+    plca_node_id: 3
+    zone_override: rear_left
+    publish:
+      - key: vehicle/rear_left/3/sensor/temperature
+        interval_ms: 1000
+        value_range: [15.0, 45.0]
+        unit: celsius
+    subscribe: []
+
+  - node_id: "4"
+    role: battery_sensor
+    plca_node_id: 4
+    zone_override: front_left
+    publish:
+      - key: vehicle/front_left/4/sensor/battery
+        interval_ms: 2000
+        value_range: [3.0, 4.2]
+        unit: volt
+    subscribe: []
+
+subscribe:
+  - key: "vehicle/*/*/sensor/temperature"
+  - key: "vehicle/*/*/sensor/battery"
+
+aggregation:
+  method: average
+  window_sec: 10
+  publish_key: vehicle/master/diagnostics
+
+sequence:
+  - step: 1
+    action: subscribe
+    description: "모든 존의 온도 센서 구독 시작"
+    key: "vehicle/*/*/sensor/temperature"
+
+  - step: 2
+    action: subscribe
+    description: "배터리 센서 구독"
+    key: "vehicle/*/*/sensor/battery"
+
+  - step: 3
+    action: wait_sensor
+    description: "첫 온도 데이터 수신 대기"
+    condition:
+      key: vehicle/front_left/1/sensor/temperature
+      operator: ">"
+      threshold: 0
+
+  - step: 4
+    action: query
+    description: "모든 노드 상태 조회"
+    key: "vehicle/*/status"
+
+  - step: 5
+    action: publish
+    description: "집계 데이터 발행"
+    key: vehicle/master/diagnostics
+    payload:
+      type: temperature_aggregate
+      method: average
+      window_sec: 10
+      zone_count: 3
+    delay_ms: 10000
+
+  - step: 6
+    action: log
+    message: "Sensor polling cycle completed, aggregate published"

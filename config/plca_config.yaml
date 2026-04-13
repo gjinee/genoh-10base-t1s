@@ -1,0 +1,27 @@
+# PLCA Configuration for the 10BASE-T1S network
+# Used by NetworkSetup and setup_plca.sh
+#
+# See PRD Section 15 for PLCA register details.
+
+interface: eth1
+
+# PLCA Coordinator settings (master node)
+plca:
+  enabled: true
+  node_id: 0           # 0 = Coordinator (beacon generator)
+  node_count: 8        # Max nodes on the bus (including coordinator)
+  to_timer: 50         # Transmit Opportunity timer (bit-times)
+  burst_count: 0       # Burst mode disabled
+  burst_timer: 128     # Burst timer (bit-times)
+
+# Network settings
+network:
+  ip_address: 192.168.1.1/24
+  speed: 10            # 10 Mbps (10BASE-T1S)
+
+# PLCA timing reference (read-only, for diagnostics)
+timing:
+  beacon_bits: 20            # 2 µs at 10 MHz
+  worst_case_8node_ms: 9.7   # All 8 nodes transmitting max frames
+  min_cycle_8node_us: 27.6   # All 8 nodes idle
+  max_segment_length_m: 25   # Max cable length
