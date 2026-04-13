@@ -7,7 +7,12 @@ Runs the real Zenoh protocol stack over the actual 10BASE-T1S physical layer:
 Prerequisites:
   1. Two EVB-LAN8670-USB modules connected to RPi USB ports
   2. UTP cable connecting both modules
-  3. Run: sudo ./scripts/setup_dual_evb.sh
+  3. Network namespace setup (eth2 in ns_slave):
+       sudo ip netns add ns_slave
+       sudo ip link set eth2 netns ns_slave
+       sudo ip netns exec ns_slave ip addr add 192.168.1.2/24 dev eth2
+       sudo ip netns exec ns_slave ip link set eth2 up
+       sudo ip addr add 192.168.1.1/24 dev eth1
   4. Run: zenohd --listen tcp/192.168.1.1:7447
 
 Usage:
@@ -15,7 +20,7 @@ Usage:
   python3 -m pytest tests/test_hw_bypass.py -v -k "test_ping"  # single test
 
 Skip:
-  Tests auto-skip if eth1/eth2 or zenohd are not available.
+  Tests auto-skip if eth1 or zenohd are not available.
 """
 
 from __future__ import annotations
@@ -47,12 +52,23 @@ ROUTER_ENDPOINT = f"tcp/{MASTER_IP}:7447"
 # ---------------------------------------------------------------------------
 
 
-def _interface_exists(iface: str) -> bool:
-    result = subprocess.run(
-        ["ip", "link", "show", iface],
-        capture_output=True, timeout=5,
-    )
+SLAVE_NETNS = "ns_slave"
+
+
+def _interface_exists(iface: str, netns: str | None = None) -> bool:
+    cmd = ["ip", "link", "show", iface]
+    if netns:
+        cmd = ["sudo", "ip", "netns", "exec", netns] + cmd
+    result = subprocess.run(cmd, capture_output=True, timeout=5)
     return result.returncode == 0
+
+
+def _netns_exists(name: str) -> bool:
+    result = subprocess.run(
+        ["sudo", "ip", "netns", "list"],
+        capture_output=True, text=True, timeout=5,
+    )
+    return name in result.stdout
 
 
 def _zenohd_running() -> bool:
@@ -63,17 +79,17 @@ def _zenohd_running() -> bool:
     return result.returncode == 0
 
 
-def _can_ping(src_iface: str, dst_ip: str) -> bool:
-    result = subprocess.run(
-        ["ping", "-c", "1", "-W", "2", "-I", src_iface, dst_ip],
-        capture_output=True, timeout=5,
-    )
+def _can_ping(src_iface: str, dst_ip: str, netns: str | None = None) -> bool:
+    cmd = ["ping", "-c", "1", "-W", "2", "-I", src_iface, dst_ip]
+    if netns:
+        cmd = ["sudo", "ip", "netns", "exec", netns] + cmd
+    result = subprocess.run(cmd, capture_output=True, timeout=5)
     return result.returncode == 0
 
 
 hw_available = pytest.mark.skipif(
-    not (_interface_exists(MASTER_IFACE) and _interface_exists(SLAVE_IFACE)),
-    reason=f"Hardware not available: need {MASTER_IFACE} and {SLAVE_IFACE}",
+    not _interface_exists(MASTER_IFACE),
+    reason=f"Hardware not available: need {MASTER_IFACE}",
 )
 
 zenohd_required = pytest.mark.skipif(
@@ -83,10 +99,10 @@ zenohd_required = pytest.mark.skipif(
 
 
 def _master_config() -> zenoh.Config:
-    """Master: client mode connecting to local zenohd."""
+    """Master: client mode connecting to zenohd on master IP."""
     conf = zenoh.Config()
     conf.insert_json5("mode", '"client"')
-    conf.insert_json5("connect/endpoints", json.dumps([f"tcp/127.0.0.1:7447"]))
+    conf.insert_json5("connect/endpoints", json.dumps([ROUTER_ENDPOINT]))
     return conf
 
 
@@ -115,7 +131,8 @@ class TestPhysicalLayer:
 
     def test_slave_interface_up(self):
         result = subprocess.run(
-            ["ip", "-o", "link", "show", SLAVE_IFACE],
+            ["sudo", "ip", "netns", "exec", SLAVE_NETNS,
+             "ip", "-o", "link", "show", SLAVE_IFACE],
             capture_output=True, text=True, timeout=5,
         )
         assert "LOWER_UP" in result.stdout or "state UP" in result.stdout
@@ -132,7 +149,8 @@ class TestPhysicalLayer:
     def test_plca_slave_config(self):
         """PLCA Follower should be Node ID 1."""
         result = subprocess.run(
-            ["ethtool", "--get-plca-cfg", SLAVE_IFACE],
+            ["sudo", "ip", "netns", "exec", SLAVE_NETNS,
+             "ethtool", "--get-plca-cfg", SLAVE_IFACE],
             capture_output=True, text=True, timeout=5,
         )
         if result.returncode == 0:
@@ -145,7 +163,7 @@ class TestPhysicalLayer:
 
     def test_ping_slave_to_master(self):
         """Ping from slave (eth2) to master (eth1) over 10BASE-T1S bus."""
-        assert _can_ping(SLAVE_IFACE, MASTER_IP), \
+        assert _can_ping(SLAVE_IFACE, MASTER_IP, netns=SLAVE_NETNS), \
             f"Ping failed: {SLAVE_IP} → {MASTER_IP} over 10BASE-T1S"
 
     def test_plca_beacon_active(self):
