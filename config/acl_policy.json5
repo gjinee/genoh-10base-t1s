@@ -1,0 +1,53 @@
+{
+  // Zenoh ACL Policy — Key Expression based access control
+  // See cybersecurity.md Section 4.2
+  access_control: {
+    enabled: true,
+    default_permission: "deny",  // Whitelist approach
+
+    rules: [
+      // Master app (local loopback) — full access
+      {
+        id: "master_app",
+        interfaces: ["tcp/127.0.0.1"],
+        permission: "allow",
+        key_exprs: ["vehicle/**"],
+        actions: ["put", "get", "declare_subscriber", "declare_queryable"]
+      },
+
+      // Slave Node 1 (front_left) — own zone only
+      {
+        id: "slave_node_1",
+        cert_common_name: "zenoh-node-1",
+        permission: "allow",
+        key_exprs: [
+          "vehicle/front_left/1/sensor/*",
+          "vehicle/front_left/1/status",
+          "vehicle/front_left/1/alive",
+          "vehicle/front_left/1/actuator/*",
+          "vehicle/master/heartbeat",
+          "vehicle/master/command"
+        ],
+        actions: ["put", "declare_subscriber", "declare_queryable"]
+      },
+
+      // Slave Node 2 (front_right)
+      {
+        id: "slave_node_2",
+        cert_common_name: "zenoh-node-2",
+        permission: "allow",
+        key_exprs: [
+          "vehicle/front_right/2/sensor/*",
+          "vehicle/front_right/2/status",
+          "vehicle/front_right/2/alive",
+          "vehicle/front_right/2/actuator/*",
+          "vehicle/master/heartbeat",
+          "vehicle/master/command"
+        ],
+        actions: ["put", "declare_subscriber", "declare_queryable"]
+      }
+
+      // Additional nodes (3-7) follow the same pattern
+    ]
+  }
+}

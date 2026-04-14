@@ -1,0 +1,42 @@
+{
+  // Zenoh Router Configuration — TLS enabled
+  // See cybersecurity.md Section 3.1.1
+  mode: "router",
+  listen: {
+    endpoints: [
+      "tcp/127.0.0.1:7447",          // Local app (loopback, no TLS needed)
+      "tls/192.168.1.1:7447"         // Slave nodes (10BASE-T1S, mTLS)
+    ]
+  },
+  transport: {
+    link: {
+      tls: {
+        listen_certificate: "/etc/zenoh/certs/master.crt",
+        listen_private_key: "/etc/zenoh/certs/master.key",
+        root_ca_certificate: "/etc/zenoh/certs/ca.crt",
+        enable_mtls: true  // mTLS: require client certificates
+      }
+    }
+  },
+  scouting: {
+    multicast: {
+      enabled: true,
+      address: "224.0.0.224:7446"
+    }
+  },
+  plugins: {
+    storage_manager: {
+      storages: {}
+    }
+  },
+  timestamping: {
+    enabled: {
+      router: true
+    }
+  },
+  transport: {
+    unicast: {
+      max_sessions: 7  // 8 PLCA nodes - 1 master = 7 slaves max
+    }
+  }
+}
