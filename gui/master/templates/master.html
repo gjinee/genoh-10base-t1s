@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10BASE-T1S Master Controller</title>
+<link rel="stylesheet" href="/static/css/master.css">
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header id="header">
+  <div class="header-left">
+    <h1>10BASE-T1S Master Controller</h1>
+    <span class="badge" id="mode-badge">SIM</span>
+    <span class="badge conn-badge" id="conn-badge">DISCONNECTED</span>
+  </div>
+  <div class="header-right">
+    <select id="scenario-select"><option value="">-- Scenario --</option></select>
+    <button id="btn-start" class="btn btn-green" onclick="startSim()">Start</button>
+    <button id="btn-stop" class="btn btn-red" onclick="stopSim()">Stop</button>
+  </div>
+</header>
+
+<!-- ===== MAIN GRID ===== -->
+<main id="main-grid">
+
+  <!-- LEFT: Vehicle Topology + PLCA Bus -->
+  <section id="panel-topology" class="panel">
+    <h2>Vehicle Topology</h2>
+    <div id="vehicle-diagram">
+      <svg id="vehicle-svg" viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+        <!-- Car body -->
+        <rect x="80" y="40" width="240" height="420" rx="40" ry="40"
+              fill="#1a1a2e" stroke="#00d4ff" stroke-width="2"/>
+        <!-- Windshield -->
+        <path d="M120,100 L280,100 L260,160 L140,160 Z" fill="#16213e" stroke="#00d4ff" stroke-width="1"/>
+        <!-- Rear window -->
+        <path d="M140,340 L260,340 L280,400 L120,400 Z" fill="#16213e" stroke="#00d4ff" stroke-width="1"/>
+        <!-- Wheels -->
+        <ellipse cx="90" cy="150" rx="20" ry="30" fill="#333" stroke="#555" stroke-width="2"/>
+        <ellipse cx="310" cy="150" rx="20" ry="30" fill="#333" stroke="#555" stroke-width="2"/>
+        <ellipse cx="90" cy="350" rx="20" ry="30" fill="#333" stroke="#555" stroke-width="2"/>
+        <ellipse cx="310" cy="350" rx="20" ry="30" fill="#333" stroke="#555" stroke-width="2"/>
+
+        <!-- Zone: Front Left -->
+        <g id="zone-front_left" class="zone-group" transform="translate(100,170)">
+          <rect width="90" height="70" rx="8" fill="#0f3460" stroke="#00d4ff" stroke-width="1.5" class="zone-rect"/>
+          <text x="45" y="16" class="zone-label">Front Left</text>
+          <g class="zone-nodes" id="zone-fl-nodes"></g>
+        </g>
+
+        <!-- Zone: Front Right -->
+        <g id="zone-front_right" class="zone-group" transform="translate(210,170)">
+          <rect width="90" height="70" rx="8" fill="#0f3460" stroke="#00d4ff" stroke-width="1.5" class="zone-rect"/>
+          <text x="45" y="16" class="zone-label">Front Right</text>
+          <g class="zone-nodes" id="zone-fr-nodes"></g>
+        </g>
+
+        <!-- Zone: Rear Left -->
+        <g id="zone-rear_left" class="zone-group" transform="translate(100,270)">
+          <rect width="90" height="70" rx="8" fill="#0f3460" stroke="#00d4ff" stroke-width="1.5" class="zone-rect"/>
+          <text x="45" y="16" class="zone-label">Rear Left</text>
+          <g class="zone-nodes" id="zone-rl-nodes"></g>
+        </g>
+
+        <!-- Zone: Rear Right -->
+        <g id="zone-rear_right" class="zone-group" transform="translate(210,270)">
+          <rect width="90" height="70" rx="8" fill="#0f3460" stroke="#00d4ff" stroke-width="1.5" class="zone-rect"/>
+          <text x="45" y="16" class="zone-label">Rear Right</text>
+          <g class="zone-nodes" id="zone-rr-nodes"></g>
+        </g>
+
+        <!-- Master node (center) -->
+        <g id="master-node" transform="translate(170,230)">
+          <rect width="60" height="40" rx="6" fill="#e94560" stroke="#ff6b6b" stroke-width="2"/>
+          <text x="30" y="16" class="master-label">MASTER</text>
+          <text x="30" y="30" class="master-label" style="font-size:9px">Node 0</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- PLCA Bus Bar -->
+    <div id="plca-bus">
+      <h3>PLCA Bus <span id="plca-beacon" class="indicator green">BEACON</span></h3>
+      <div id="plca-slots"></div>
+      <div class="plca-stats">
+        <span>Nodes: <b id="plca-count">1</b>/8</span>
+        <span>Collisions: <b id="plca-collisions">0</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT TOP: Safety + Security -->
+  <section id="panel-safety" class="panel">
+    <h2>Safety Dashboard</h2>
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <label>Safety FSM</label>
+        <div id="safety-fsm" class="fsm-display normal">NORMAL</div>
+        <button class="btn btn-sm" onclick="resetSafety()">Reset</button>
+      </div>
+      <div class="dash-card">
+        <label>Watchdog</label>
+        <div class="watchdog-bar">
+          <div id="watchdog-fill" class="watchdog-fill" style="width:100%"></div>
+        </div>
+        <span id="watchdog-timer">5.0s</span>
+        <button class="btn btn-sm" onclick="kickWatchdog()">Kick</button>
+      </div>
+      <div class="dash-card">
+        <label>Flow Monitor</label>
+        <div id="flow-checkpoints" class="flow-steps">
+          <span class="flow-step" data-cp="CP_SENSOR">SEN</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" data-cp="CP_ACTUATOR">ACT</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" data-cp="CP_QUERY">QRY</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step" data-cp="CP_DIAG">DIG</span>
+        </div>
+      </div>
+      <div class="dash-card">
+        <label>DTC</label>
+        <div id="dtc-count" class="big-num">0</div>
+        <span class="sub-label">active codes</span>
+      </div>
+    </div>
+
+    <h2>Security Panel</h2>
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <label>IDS Alerts</label>
+        <div id="ids-count" class="big-num">0</div>
+      </div>
+      <div class="dash-card">
+        <label>SecOC</label>
+        <div id="secoc-status" class="indicator green">ACTIVE</div>
+      </div>
+      <div class="dash-card">
+        <label>ACL Violations</label>
+        <div id="acl-violations" class="big-num">0</div>
+      </div>
+      <div class="dash-card">
+        <label>Log Chain</label>
+        <div id="log-chain" class="indicator green">VALID</div>
+      </div>
+    </div>
+
+    <!-- IDS Alert List -->
+    <div id="ids-alert-list" class="alert-list"></div>
+
+    <!-- Fault Injection -->
+    <h3>Fault Injection</h3>
+    <div class="fault-controls">
+      <select id="fault-node">
+        <option value="">-- Node --</option>
+      </select>
+      <button class="btn btn-orange btn-sm" onclick="injectFault('NODE_OFFLINE')">Node Offline</button>
+      <button class="btn btn-orange btn-sm" onclick="injectFault('CRC_FAILURE')">CRC Fail</button>
+      <button class="btn btn-orange btn-sm" onclick="injectFault('WATCHDOG_EXPIRED')">WD Expire</button>
+    </div>
+  </section>
+
+  <!-- BOTTOM: Node detail cards -->
+  <section id="panel-nodes" class="panel">
+    <h2>Registered Nodes</h2>
+    <div id="node-cards" class="node-cards-grid"></div>
+  </section>
+
+  <!-- BOTTOM: Message Stream + Agent Log -->
+  <section id="panel-messages" class="panel">
+    <div class="tab-header">
+      <button class="tab-btn active" onclick="showTab('bus')">Bus Messages</button>
+      <button class="tab-btn" onclick="showTab('agent')">Agent Activity</button>
+      <button class="tab-btn" onclick="showTab('ids')">IDS Alerts</button>
+    </div>
+    <div id="tab-bus" class="tab-content active">
+      <div id="msg-stream" class="log-stream"></div>
+    </div>
+    <div id="tab-agent" class="tab-content">
+      <div id="agent-stream" class="log-stream"></div>
+    </div>
+    <div id="tab-ids" class="tab-content">
+      <div id="ids-stream" class="log-stream"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/js/master.js"></script>
+</body>
+</html>

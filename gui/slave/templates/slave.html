@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10BASE-T1S Slave Node</title>
+<link rel="stylesheet" href="/static/css/slave.css">
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header id="header">
+  <div class="header-left">
+    <h1>10BASE-T1S Slave Node</h1>
+    <span class="badge" id="mode-badge">SIM</span>
+    <span class="badge conn-badge" id="conn-badge">DISCONNECTED</span>
+  </div>
+  <div class="header-right">
+    <label>Node ID:</label>
+    <input type="text" id="input-node-id" value="1" class="input-sm" style="width:50px">
+    <label>Zone:</label>
+    <select id="input-zone">
+      <option value="front_left">Front Left</option>
+      <option value="front_right">Front Right</option>
+      <option value="rear_left">Rear Left</option>
+      <option value="rear_right">Rear Right</option>
+    </select>
+    <label>PLCA:</label>
+    <input type="number" id="input-plca" value="1" min="1" max="7" class="input-sm" style="width:50px">
+    <label>Role:</label>
+    <select id="input-role">
+      <option value="sensor">Sensor</option>
+      <option value="actuator">Actuator</option>
+      <option value="mixed">Mixed</option>
+    </select>
+    <button id="btn-register" class="btn btn-green" onclick="registerNode()">Register</button>
+  </div>
+</header>
+
+<!-- ===== MAIN GRID ===== -->
+<main id="main-grid">
+
+  <!-- LEFT: Sensor Simulator -->
+  <section id="panel-sensors" class="panel">
+    <h2>Sensor Simulator</h2>
+    <div id="sensor-controls">
+      <!-- Temperature -->
+      <div class="sensor-row" id="sensor-temperature">
+        <div class="sensor-header">
+          <span class="sensor-name">Temperature</span>
+          <span class="sensor-value" id="val-temperature">25.00 &deg;C</span>
+        </div>
+        <input type="range" id="slider-temperature" min="-40" max="150" step="0.1" value="25"
+               oninput="onSlider('temperature', this.value)">
+        <div class="sensor-mode">
+          <label><input type="radio" name="mode-temperature" value="auto" checked onchange="setMode('temperature','auto')"> Auto</label>
+          <label><input type="radio" name="mode-temperature" value="manual" onchange="setMode('temperature','manual')"> Manual</label>
+          <span class="interval-label">Interval:</span>
+          <input type="number" id="interval-temperature" value="1000" min="100" max="10000" step="100" class="input-sm" style="width:70px">
+          <span>ms</span>
+        </div>
+        <canvas id="chart-temperature" width="350" height="80" class="sensor-chart"></canvas>
+      </div>
+
+      <!-- Proximity -->
+      <div class="sensor-row" id="sensor-proximity">
+        <div class="sensor-header">
+          <span class="sensor-name">Proximity</span>
+          <span class="sensor-value" id="val-proximity">100.00 cm</span>
+        </div>
+        <input type="range" id="slider-proximity" min="0" max="500" step="0.5" value="100"
+               oninput="onSlider('proximity', this.value)">
+        <div class="sensor-mode">
+          <label><input type="radio" name="mode-proximity" value="auto" checked onchange="setMode('proximity','auto')"> Auto</label>
+          <label><input type="radio" name="mode-proximity" value="manual" onchange="setMode('proximity','manual')"> Manual</label>
+          <span class="interval-label">Interval:</span>
+          <input type="number" id="interval-proximity" value="200" min="100" max="10000" step="100" class="input-sm" style="width:70px">
+          <span>ms</span>
+        </div>
+        <canvas id="chart-proximity" width="350" height="80" class="sensor-chart"></canvas>
+      </div>
+
+      <!-- Battery -->
+      <div class="sensor-row" id="sensor-battery">
+        <div class="sensor-header">
+          <span class="sensor-name">Battery</span>
+          <span class="sensor-value" id="val-battery">3.70 V</span>
+        </div>
+        <input type="range" id="slider-battery" min="0" max="4.2" step="0.01" value="3.7"
+               oninput="onSlider('battery', this.value)">
+        <div class="sensor-mode">
+          <label><input type="radio" name="mode-battery" value="auto" checked onchange="setMode('battery','auto')"> Auto</label>
+          <label><input type="radio" name="mode-battery" value="manual" onchange="setMode('battery','manual')"> Manual</label>
+          <span class="interval-label">Interval:</span>
+          <input type="number" id="interval-battery" value="5000" min="100" max="60000" step="500" class="input-sm" style="width:70px">
+          <span>ms</span>
+        </div>
+        <canvas id="chart-battery" width="350" height="80" class="sensor-chart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT TOP: Node Status + E2E + SecOC -->
+  <section id="panel-status" class="panel">
+    <h2>Node Status</h2>
+    <div class="status-grid">
+      <div class="status-item"><label>PLCA ID</label><span id="st-plca-id">-</span></div>
+      <div class="status-item"><label>Role</label><span id="st-role">-</span></div>
+      <div class="status-item"><label>Zone</label><span id="st-zone">-</span></div>
+      <div class="status-item"><label>Alive</label><span id="st-alive" class="indicator green">YES</span></div>
+      <div class="status-item"><label>Uptime</label><span id="st-uptime">00:00:00</span></div>
+      <div class="status-item"><label>TX Count</label><span id="st-tx">0</span></div>
+      <div class="status-item"><label>RX Count</label><span id="st-rx">0</span></div>
+      <div class="status-item"><label>Errors</label><span id="st-errors">0</span></div>
+    </div>
+
+    <h2>E2E Protection</h2>
+    <div class="status-grid">
+      <div class="status-item"><label>Status</label><span id="e2e-status" class="indicator green">INIT</span></div>
+      <div class="status-item"><label>Seq Counter</label><span id="e2e-seq">0</span></div>
+      <div class="status-item"><label>CRC OK</label><span id="e2e-ok" class="val-green">0</span></div>
+      <div class="status-item"><label>CRC Fail</label><span id="e2e-fail" class="val-red">0</span></div>
+    </div>
+
+    <h2>SecOC Authentication</h2>
+    <div class="status-grid">
+      <div class="status-item"><label>HMAC Key</label><span id="secoc-key" class="indicator green">Active</span></div>
+      <div class="status-item"><label>Auth OK</label><span id="secoc-ok" class="val-green">0</span></div>
+      <div class="status-item"><label>Auth Fail</label><span id="secoc-fail" class="val-red">0</span></div>
+    </div>
+
+    <!-- Actuator Receiver -->
+    <h2>Actuator Commands Received</h2>
+    <div id="actuator-list" class="actuator-list">
+      <div class="actuator-item" id="act-lock">
+        <span class="act-icon">&#x1F512;</span>
+        <span class="act-name">Lock</span>
+        <span class="act-state" id="act-lock-state">UNLOCK</span>
+      </div>
+      <div class="actuator-item" id="act-motor">
+        <span class="act-icon">&#x2699;</span>
+        <span class="act-name">Motor</span>
+        <span class="act-state" id="act-motor-state">STOP</span>
+      </div>
+      <div class="actuator-item" id="act-led">
+        <span class="act-icon">&#x1F4A1;</span>
+        <span class="act-name">LED</span>
+        <span class="act-state" id="act-led-state">OFF</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM LEFT: Attack Simulation -->
+  <section id="panel-attack" class="panel">
+    <h2>Attack Simulation (Security Test)</h2>
+    <div class="attack-controls">
+      <button class="btn btn-red btn-attack" onclick="doAttack('spoof')">
+        <span class="atk-icon">&#x1F3AD;</span> Spoof
+        <small>Wrong HMAC</small>
+      </button>
+      <button class="btn btn-red btn-attack" onclick="doAttack('replay')">
+        <span class="atk-icon">&#x1F501;</span> Replay
+        <small>Old Message</small>
+      </button>
+      <button class="btn btn-red btn-attack" onclick="doAttack('flood')">
+        <span class="atk-icon">&#x1F30A;</span> Flood
+        <small>Rate Exceed</small>
+      </button>
+      <button class="btn btn-red btn-attack" onclick="doAttack('unauthorized')">
+        <span class="atk-icon">&#x26D4;</span> Unauthorized
+        <small>Wrong KE</small>
+      </button>
+    </div>
+    <div class="attack-controls" style="margin-top:8px">
+      <button class="btn btn-orange" onclick="goOffline()">Go Offline</button>
+      <button class="btn btn-green" onclick="goOnline()">Go Online</button>
+      <span id="attack-status" class="attack-status">IDLE</span>
+    </div>
+  </section>
+
+  <!-- BOTTOM RIGHT: Message Log -->
+  <section id="panel-log" class="panel">
+    <h2>Message Log</h2>
+    <div id="msg-stream" class="log-stream"></div>
+  </section>
+
+</main>
+
+<script src="/static/js/slave.js"></script>
+</body>
+</html>
